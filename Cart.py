@@ -2,7 +2,7 @@ import os
 
 class Cart():
 
-    def __init(self, mass):
+    def __init(self, mass, position, velocity):
         self.mass = mass
-        self.velocity = 0
-        self.position = 0
+        self.position = position
+        self.velocity = velocity
