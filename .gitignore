@@ -1,0 +1,6 @@
+*.pyc
+debug*
+*.pkl
+*.csv
+*.txt
+*.pdf
