@@ -22,6 +22,7 @@ class MDP():
         self.track_limits = np.arange(-env.track_limits, env.track_limits)
         self.actions = Actions
         self.time = 0
+        self.epsilon = 1e-4
 
     def get_init_state(self):
         x = self.env.start_position
@@ -33,29 +34,47 @@ class MDP():
     def get_state_tuple(self, env):
         return (env.cart.position, env.cart.velocity, env.pole.theta, env.pole.omega)
 
-    def is_terminal_state(self, state):
-        if time == 20.2 or abs(state[2]) == 90 or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
+    def is_terminal_state(self, state, time_counter):
+        time = time_counter*self.time_step
+        if time == 20.2 or abs(state[2])>90 or abs(abs(state[2]) - 90)<self.epsilon or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
             return True
         return False
     
     def is_valid_state(self, state):
         pass
 
-    def policy(self, state):
-        pass
+    def policy(self, policy, state):
+        if policy == 'random':
+            choice = np.random.randint(0,2)
+            if choice%2 == 0:
+                return self.actions['left']
+            else:
+                return self.actions['right']
     
-    def get_accelerations(self, f):
-        pass
+    def get_accelerations(self, f, state):
+        # For the derivations of the dynamics, see: https://coneural.org/florian/papers/05_cart_pole.pdf
+        theta = np.deg2rad(state[2])
+        omega = np.deg2rad(state[3])
+        x = state[0]
+        v = state[1]
+        sin = np.sin
+        cos = np.cos
+        alpha = self.g*sin(theta) + cos(theta)*( -f - self.env.pole.mass*self.env.pole.length*(omega**2)*sin(theta))/(self.env.cart.mass + self.env.pole.mass)
+        alpha /= (self.env.pole.length*(4/3 - (self.env.pole.mass*(cos(theta)**2))/(self.env.pole.mass + self.env.cart.mass)))
+        a =( f + (self.env.pole.mass*self.env.pole.length*((omega**2)*sin(theta) - alpha*cos(theta))) )/ (self.env.cart.mass + self.env.pole.mass) 
+        return a, alpha
 
     def transition_function(self, state, action):
         x, v, theta, omega = state
+        theta = np.deg2rad(theta)
+        omega = np.deg2rad(omega)
         f = self.f*action
-        a, alpha = self.get_accelerations(f)
+        a, alpha = self.get_accelerations(f, state)
         x = x + v*self.time_step + (0.5*a*self.time_step**2)
         v = v + a*self.time_step
         theta = theta + omega*self.time_step + (0.5*alpha*self.time_step**2)
         omega = omega + alpha*self.time_step
-        return (x,v,theta,omega)
+        return (x,v,np.rad2deg(theta),np.rad2deg(omega))
     
     def reward_function(self, s_t, a_t, s_t_1, time_step):
         return 1*(self.gamma**time_step)
@@ -64,17 +83,28 @@ class MDP():
         s_t = self.get_init_state()
         total_reward = 0
         time_counter = 0
-
-        while(not self.is_terminal_state(s_t)):
-            a_t = self.policy(s_t)
+        while(not self.is_terminal_state(s_t, time_counter)):
+            self.print_state(s_t)
+            a_t = self.policy(policy, s_t)
+            print("Action at time: ", time_counter, " : ", a_t)
             s_t_1 = self.transition_function(s_t, a_t)
             r_t = self.reward_function(s_t, a_t, s_t_1, time_counter)
             total_reward += r_t
             time_counter += 1
             s_t = s_t_1
+        self.print_state(s_t)
+        print("Time Steps: ", time_counter, " Total Reward: ", total_reward)
+
+    def print_state(self, s_t):
+        print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", s_t[2], " Omega: ", s_t[3])
 
     def learn_policy(self, num_episodes, policy):
         pass
+
+if __name__ == "__main__":
+    env = Environment(1,0.1,0.5,0,0,0,0)
+    mdp = MDP(env,1)
+    mdp.run_episode('random')
 
     
 
