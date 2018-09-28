@@ -44,8 +44,18 @@ class MDP():
     def policy(self, state):
         pass
     
-    def transition_function(self, state, action):
+    def get_accelerations(self, f):
         pass
+
+    def transition_function(self, state, action):
+        x, v, theta, omega = state
+        f = self.f*action
+        a, alpha = self.get_accelerations(f)
+        x = x + v*self.time_step + (0.5*a*self.time_step**2)
+        v = v + a*self.time_step
+        theta = theta + omega*self.time_step + (0.5*alpha*self.time_step**2)
+        omega = omega + alpha*self.time_step
+        return (x,v,theta,omega)
     
     def reward_function(self, s_t, a_t, s_t_1, time_step):
         return 1*(self.gamma**time_step)
