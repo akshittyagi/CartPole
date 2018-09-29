@@ -36,7 +36,7 @@ class MDP():
 
     def is_terminal_state(self, state, time_counter):
         time = time_counter*self.time_step
-        if time == 20.2 or abs(state[2])>90 or abs(abs(state[2]) - 90)<self.epsilon or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
+        if time == 20.2 or abs(state[2])>90) or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
             return True
         return False
     
