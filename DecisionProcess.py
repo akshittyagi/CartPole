@@ -102,7 +102,7 @@ class MDP():
         pass
 
 if __name__ == "__main__":
-    env = Environment(1,0.1,0.5,0,0,0,0)
+    env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1)
     mdp.run_episode('random')
 
