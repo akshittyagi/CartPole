@@ -11,7 +11,7 @@ from Environment import Environment, Actions
 
 class MDP():
 
-    def __init__(self, env, gamma, g=9.8, f=10, time_step=0.02, fail_angle=90, terminate_time=20.2):
+    def __init__(self, env, gamma, g=9.8, f=10, time_step=0.02, fail_angle=np.deg2rad(90), terminate_time=20.2):
         self.env = env
         self.g = g
         self.f = f
@@ -36,7 +36,7 @@ class MDP():
 
     def is_terminal_state(self, state, time_counter):
         time = time_counter*self.time_step
-        if time == 20.2 or abs(state[2])>90) or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
+        if time == 20.2 or abs(state[2])>self.fail_angle or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
             return True
         return False
     
@@ -53,8 +53,8 @@ class MDP():
     
     def get_accelerations(self, f, state):
         # For the derivations of the dynamics, see: https://coneural.org/florian/papers/05_cart_pole.pdf
-        theta = np.deg2rad(state[2])
-        omega = np.deg2rad(state[3])
+        theta = state[2]
+        omega = state[3]
         x = state[0]
         v = state[1]
         sin = np.sin
@@ -66,15 +66,19 @@ class MDP():
 
     def transition_function(self, state, action):
         x, v, theta, omega = state
-        theta = np.deg2rad(theta)
-        omega = np.deg2rad(omega)
         f = self.f*action
         a, alpha = self.get_accelerations(f, state)
-        x = x + v*self.time_step + (0.5*a*self.time_step**2)
+        # x = x + v*self.time_step + (0.5*a*self.time_step**2)
+        # v = v + a*self.time_step
+        # theta = theta + omega*self.time_step + (0.5*alpha*self.time_step**2)
+        # omega = omega + alpha*self.time_step
+        '''Using the forward euler approximation: http://web.mit.edu/10.001/Web/Course_Notes/Differential_Equations_Notes/node3.html'''
         v = v + a*self.time_step
-        theta = theta + omega*self.time_step + (0.5*alpha*self.time_step**2)
         omega = omega + alpha*self.time_step
-        return (x,v,np.rad2deg(theta),np.rad2deg(omega))
+        x = x + v*self.time_step
+        theta = theta + omega*self.time_step
+
+        return (x,v,theta,omega)
     
     def reward_function(self, s_t, a_t, s_t_1, time_step):
         return 1*(self.gamma**time_step)
@@ -96,7 +100,7 @@ class MDP():
         print("Time Steps: ", time_counter, " Total Reward: ", total_reward)
 
     def print_state(self, s_t):
-        print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", s_t[2], " Omega: ", s_t[3])
+        print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", np.rad2deg(s_t[2]), " Omega: ", s_t[3])
 
     def learn_policy(self, num_episodes, policy):
         pass
