@@ -8,10 +8,11 @@ from enum import Enum
 
 import numpy as np
 from Environment import Environment, Actions
+import util
 
 class MDP():
 
-    def __init__(self, env, gamma, g=9.8, f=10, time_step=0.02, fail_angle=np.deg2rad(90), terminate_time=20.2):
+    def __init__(self, env=Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0), gamma=1, g=9.8, f=10, time_step=0.02, fail_angle=np.deg2rad(90), terminate_time=20.2, debug=False):
         self.env = env
         self.g = g
         self.f = f
@@ -23,6 +24,7 @@ class MDP():
         self.actions = Actions
         self.time = 0
         self.epsilon = 1e-4
+        self.debug = debug
 
     def get_init_state(self):
         x = self.env.start_position
@@ -100,17 +102,81 @@ class MDP():
             time_counter += 1
             s_t = s_t_1
         self.print_state(s_t)
-        print("Time Steps: ", time_counter, " Total Reward: ", total_reward)
+        if self.debug:
+            print("Time Steps: ", time_counter, " Total Reward: ", total_reward)
+        return total_reward
 
     def print_state(self, s_t):
         print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", np.rad2deg(s_t[2]), " Omega: ", np.rad2deg(s_t[3]))
 
-    def learn_policy(self, num_episodes, policy):
-        pass
+    def evaluate(self, theta_k, num_episodes):
+        reward = 0
+        for episode in range(num_episodes):
+            curr_reward  = self.run_episode(policy=theta_k)
+            reward += curr_reward
+            if episode % num_episodes/10 == 0 and self.debug:
+                print "At episode: ", episode
+                print "Reward: ", reward
+        if self.debug:
+            print "Av Reward: ", reward*1.0/num_episodes
+        return reward*1.0/num_episodes
+
+    def iterable(self, array):
+        for elem in array:
+            yield elem
+
+    def learn_policy_bbo_multiprocessing(self, init_population, best_ke, num_episodes, epsilon, num_iter, steps_per_trial=15, sigma=10):
+        assert init_population >= best_ke
+        assert num_episodes > 1
+        curr_iter = 0
+        reshape_param = (100, 2)
+        data = []
+        theta_max = []
+        max_av_reward = -2**31
+        while (curr_iter < num_iter):
+            theta, sigma = util.get_init(state_space=reshape_param[0],action_space=reshape_param[1], sigma=sigma)
+            for i in range(steps_per_trial):
+                values = []
+                print "-----------------------------"
+                print "At ITER: ", curr_iter
+                print "AT step: ", i
+                theta_sampled= util.sample('gaussian', theta, sigma, reshape_param, init_population)
+                softmax_theta = np.exp(theta_sampled)
+                tic = time.time()
+                pool = Pool(multiprocessing.cpu_count())
+                mp_obj = multiprocessing_obj(num_episodes)
+                values = pool.map(mp_obj, self.iterable(softmax_theta))
+                data.append(np.array(values)[:,1].tolist())
+                pool.close()
+                pool.join()
+                toc = time.time()
+                values = sorted(values, key=lambda x: x[1], reverse=True)
+                print "Max reward: ", values[0][1]
+                if max_av_reward < values[0][1]:
+                    max_av_reward = values[0][1]
+                    print "MAX REWARD UPDATED"
+                    theta_max = values[0][0]
+                theta, sigma = util.generate_new_distribution('gaussian', theta, values, best_ke, epsilon)
+                print "-----------------------------"
+            curr_iter += 1
+        print "Saving data"
+        pkl.dump(data, open("FILE.pkl", 'w'))
+        pkl.dump(theta_max, open("THETA.pkl", 'w'))
+    
+
+class multiprocessing_obj(MDP):
+        def __init__(self, num_episodes):
+            MDP.__init__(self,)
+            self.num_episodes = num_episodes
+        def __call__(self, theta):
+            theta = theta/np.sum(theta, axis=1)[:,None]
+            j = self.evaluate(theta, self.num_episodes)
+            return theta.reshape(theta.shape[0]*theta.shape[1], 1), j
+
 
 if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
-    mdp = MDP(env,1)
+    mdp = MDP(env,1,debug=True)
     mdp.run_episode('random')
 
     
