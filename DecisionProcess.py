@@ -5,6 +5,9 @@ import argparse
 import pickle as pkl
 import csv
 from enum import Enum
+import time
+import multiprocessing
+from multiprocessing import Pool
 
 import numpy as np
 from Environment import Environment, Actions
@@ -25,6 +28,8 @@ class MDP():
         self.time = 0
         self.epsilon = 1e-4
         self.debug = debug
+        self.max_velocity = 10
+        self.max_omega = 180
 
     def get_init_state(self):
         x = self.env.start_position
@@ -46,13 +51,38 @@ class MDP():
         pass
 
     def policy(self, policy, state):
-        if policy == 'random':
-            choice = np.random.randint(0,2)
-            if choice%2 == 0:
-                return self.actions['left']
-            else:
-                return self.actions['right']
-    
+        x,v,theta,omega = state
+        discrete_step = self.time_step*self.max_velocity
+        multiplier = x*1.0//discrete_step
+        s_t = 0
+        if x < 0 :
+            nxt = -1
+        else:
+            nxt = 1
+        if abs(x - multiplier*discrete_step) < abs(x-(multiplier+nxt)*discrete_step):
+            s_t = multiplier
+        else:
+            s_t = multiplier + nxt
+        s_t = int(s_t)
+        idx = 0
+        if s_t < 0:
+            idx = 15 + abs(s_t)
+        else:
+            idx = s_t
+        currRow = policy[idx]
+        random_number = 1.0*random.randint(0,99)/100
+        action_array = sorted(zip(np.arange(len(currRow)), currRow), key=lambda x: x[1], reverse=True)
+        prev_proba = 0
+        for action, probability in action_array:
+            prev_proba += probability
+            if random_number <= prev_proba:
+                if self.debug:
+                    print "Action Array: ", action_array
+                    print "Rand number: ",random_number
+                    print "Action selected: ", (-1 if action==0 else 1)    
+                return (-1 if action==0 else 1)
+        
+
     def get_accelerations(self, f, state):
         # For the derivations of the dynamics, see: https://coneural.org/florian/papers/05_cart_pole.pdf
         x = state[0]
@@ -70,19 +100,19 @@ class MDP():
         '''Using the forward euler approximation: http://web.mit.edu/10.001/Web/Course_Notes/Differential_Equations_Notes/node3.html'''
         x, v, theta, omega = state
         f = self.f*action
+        a, alpha = self.get_accelerations(f, (x,v,theta,omega))
         x = x + v*self.time_step
         theta = theta + omega*self.time_step
-        a, alpha = self.get_accelerations(f, (x,v,theta,omega))
         v = v + a*self.time_step
         omega = omega + alpha*self.time_step
         if omega > 0:
-            omega = min(np.deg2rad(180), omega)
+            omega = min(np.deg2rad(self.max_omega), omega)
         else:
-            omega = max(-np.deg2rad(180), omega)
+            omega = max(-np.deg2rad(self.max_omega), omega)
         if v > 0:
-            v = min(10, v)
+            v = min(self.max_velocity, v)
         else:
-            v = max(-10, v)
+            v = max(-self.max_velocity, v)
         return (x,v,theta,omega)
     
     def reward_function(self, s_t, a_t, s_t_1, time_step):
@@ -93,16 +123,18 @@ class MDP():
         total_reward = 0
         time_counter = 0
         while(not self.is_terminal_state(s_t, time_counter)):
-            self.print_state(s_t)
+            if self.debug:
+                self.print_state(s_t)
             a_t = self.policy(policy, s_t)
-            print("Action at time: ", time_counter, " : ", a_t)
+            if self.debug:
+                print("Action at time: ", time_counter, " : ", a_t)
             s_t_1 = self.transition_function(s_t, a_t)
             r_t = self.reward_function(s_t, a_t, s_t_1, time_counter)
             total_reward += r_t
             time_counter += 1
             s_t = s_t_1
-        self.print_state(s_t)
         if self.debug:
+            self.print_state(s_t)
             print("Time Steps: ", time_counter, " Total Reward: ", total_reward)
         return total_reward
 
@@ -125,11 +157,44 @@ class MDP():
         for elem in array:
             yield elem
 
+    def learn_policy_fchc(self, num_iter, sigma, num_episodes):
+        reshape_param = (31, 2)
+        curr_iter = 0
+        data = []
+        theta_max = []
+        global_max = -2**31
+        theta = util.get_init(state_space=reshape_param[0], action_space=reshape_param[1], sigma=sigma, condition=True)
+        softmax_theta = np.exp(theta)
+        softmax_theta = softmax_theta/np.sum(softmax_theta, axis=1)[:,None]
+        j = self.evaluate(softmax_theta, num_episodes)
+                
+        while curr_iter < num_iter:
+            print "-----------------------------"
+            print "At ITER: ", curr_iter
+            theta_sampled = util.sample(distribution='gaussian', theta=theta, sigma=sigma, reshape_param=reshape_param)
+            softmax_theta = np.exp(theta_sampled)
+            softmax_theta = softmax_theta/np.sum(softmax_theta, axis=1)[:,None]
+            j_n = self.evaluate(softmax_theta, num_episodes)
+            data.append(j_n)
+            if j_n > j:
+                theta = theta_sampled
+                j = j_n
+                print "MAX REWARD: ", j, " AT iter: ", curr_iter
+            if j_n > global_max:
+                global_max = j_n
+                theta_max = theta
+                print "GLOBAL MAX UPDATED: ", global_max, " AT iter: ", curr_iter
+            print "-----------------------------"
+            curr_iter += 1
+        print "Saving Data"
+        pkl.dump(data, open("fchcFILE.pkl", 'w'))
+        pkl.dump(theta_max, open("fchcTHETA.pkl", 'w'))
+
     def learn_policy_bbo_multiprocessing(self, init_population, best_ke, num_episodes, epsilon, num_iter, steps_per_trial=15, sigma=10):
         assert init_population >= best_ke
         assert num_episodes > 1
         curr_iter = 0
-        reshape_param = (100, 2)
+        reshape_param = (31, 2)
         data = []
         theta_max = []
         max_av_reward = -2**31
@@ -164,9 +229,47 @@ class MDP():
         pkl.dump(theta_max, open("THETA.pkl", 'w'))
     
 
+    def learn_policy_bbo(self, init_population, best_ke, num_episodes, epsilon, num_iter, steps_per_trial=15, sigma=100):
+        assert init_population >= best_ke
+        assert num_episodes > 1
+        curr_iter = 0
+        reshape_param = (31, 2)
+        data = []
+        theta_max = []
+        max_av_reward = -2**31
+        while (curr_iter < num_iter):
+            theta, sigma = util.get_init(state_space=reshape_param[0],action_space=reshape_param[1], sigma=sigma)
+            for i in range(steps_per_trial):
+                values = []
+                print "-----------------------------"
+                print "At ITER: ", curr_iter
+                print "AT step: ", i
+                theta_sampled= util.sample('gaussian', theta, sigma, reshape_param, init_population)
+                theta_sampled = np.exp(theta_sampled)
+                tic = time.time()
+                for k in range(init_population):
+                    theta_k = theta_sampled[k]
+                    theta_k = theta_k/np.sum(theta_k, axis=1)[:,None]
+                    j_k = self.evaluate(theta_k, num_episodes)
+                    data.append(j_k)
+                    if j_k > max_av_reward:
+                        max_av_reward = j_k
+                        theta_max = theta_k
+                        print "MAX REWARD: ", max_av_reward, " AT step, iter: ", i, curr_iter
+                    values.append((theta_k.reshape(reshape_param[0]*reshape_param[1], 1), j_k))  
+                toc = time.time()
+                print(toc-tic)
+                values = sorted(values, key=lambda x: x[1], reverse=True)
+                theta, sigma = util.generate_new_distribution('gaussian', theta, values, best_ke, epsilon)
+                print "-----------------------------"
+            curr_iter += 1
+        print "Saving Data"
+        pkl.dump(data, open("FILE.pkl", 'w'))
+        pkl.dump(theta_max, open("THETA.pkl", 'w'))
+
 class multiprocessing_obj(MDP):
         def __init__(self, num_episodes):
-            MDP.__init__(self,)
+            MDP.__init__(self)
             self.num_episodes = num_episodes
         def __call__(self, theta):
             theta = theta/np.sum(theta, axis=1)[:,None]
@@ -176,9 +279,9 @@ class multiprocessing_obj(MDP):
 
 if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
-    mdp = MDP(env,1,debug=True)
-    mdp.run_episode('random')
-
-    
+    mdp = MDP(env,1,debug=False)
+    # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
+    mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
+    mdp.learn_policy_fchc(num_iter=500*15*100, sigma=10, num_episodes=10)
 
     

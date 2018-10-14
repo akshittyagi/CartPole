@@ -4,3 +4,4 @@ debug*
 *.csv
 *.txt
 *.pdf
+.vscode
