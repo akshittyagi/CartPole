@@ -4,7 +4,9 @@ def sample(distribution, theta, sigma, reshape_param=[], number=1):
     if distribution == 'gaussian':
         distribution = np.random.multivariate_normal
     if isinstance(sigma,int):
-        theta_k =  distribution(theta.reshape(theta.shape[0]*theta.shape[1]), (sigma*sigma)*np.identity(theta.shape[0]*theta.shape[1]), 1)
+        theta_k =  distribution(theta.reshape(theta.shape[0]*theta.shape[1]), (sigma*sigma)*np.identity(theta.shape[0]*theta.shape[1]), number)
+        if number != 1:
+            return theta_k.reshape(number, reshape_param[0], reshape_param[1]) 
         return theta_k.reshape(reshape_param[0], reshape_param[1])
     else:
         theta_k = distribution(theta.reshape(theta.shape[0]), sigma, number)
