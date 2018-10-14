@@ -10,6 +10,7 @@ import multiprocessing
 from multiprocessing import Pool
 
 import numpy as np
+import matplotlib.pyplot as plt
 from Environment import Environment, Actions
 import util
 
@@ -199,6 +200,7 @@ class MDP():
         theta_max = []
         max_av_reward = -2**31
         while (curr_iter < num_iter):
+            import pdb; pdb.set_trace()
             theta, sigma = util.get_init(state_space=reshape_param[0],action_space=reshape_param[1], sigma=sigma)
             for i in range(steps_per_trial):
                 values = []
@@ -276,12 +278,54 @@ class multiprocessing_obj(MDP):
             j = self.evaluate(theta, self.num_episodes)
             return theta.reshape(theta.shape[0]*theta.shape[1], 1), j
 
+def generate_graphs(cond=False):
+    if not cond:
+        data = pkl.load(open('../GridWorld/FILE.pkl', 'r'))
+        num_policies = 100
+        num_steps = 15
+        num_trials = 500
+        counter = 0
+        steps = [0]*num_policies*num_steps
+        steps = np.array(steps, dtype='float64')
+        errors = [0]*num_policies*num_steps
+        errors = np.array(errors, dtype='float64')
+        while( counter < num_trials ):
+            print "STEPS", counter
+            curr_trial = data[counter*num_steps:(counter+1)*num_steps]
+            arr = np.array(curr_trial)
+            arr = arr.reshape(num_policies*num_steps)
+            steps += arr
+            counter += 1
+        steps /= num_trials
+        counter = 0
+        while( counter < num_trials ):
+            print "ERRORS", counter
+            curr_trial = data[counter*num_steps:(counter+1)*num_steps]
+            arr = np.array(curr_trial)
+            arr = arr.reshape(num_policies*num_steps)
+            diff = abs(arr-steps)
+            errors += diff**2
+            counter += 1
+        errors /= num_trials
+        errors = np.sqrt(errors)
+        x = np.arange(1500)
+        y = steps
+        yerr = errors
+        plt.errorbar(x,y,yerr=yerr,fmt='o')
+        plt.show()
+    else:
+        data = pkl.load(open('../GridWorld/fchcFILE.pkl', 'r'))
+        x = np.arange(len(data)/1000)
+        idx = np.array(x)*1000
+        y = np.array(data)[idx]
+        plt.plot(x,y)
+        plt.show()
 
 if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,debug=False)
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
-    mdp.learn_policy_fchc(num_iter=500*15*10, sigma=10, num_episodes=10)
-
+    # mdp.learn_policy_fchc(num_iter=500*15*10, sigma=10, num_episodes=10)
+    generate_graphs(cond=True)
     
