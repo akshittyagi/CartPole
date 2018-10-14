@@ -53,10 +53,10 @@ class MDP():
     
     def get_accelerations(self, f, state):
         # For the derivations of the dynamics, see: https://coneural.org/florian/papers/05_cart_pole.pdf
-        theta = state[2]
-        omega = state[3]
         x = state[0]
         v = state[1]
+        theta = state[2]
+        omega = state[3]
         sin = np.sin
         cos = np.cos
         alpha = self.g*sin(theta) + cos(theta)*( -f - self.env.pole.mass*self.env.pole.length*(omega**2)*sin(theta))/(self.env.cart.mass + self.env.pole.mass)
@@ -65,19 +65,22 @@ class MDP():
         return a, alpha
 
     def transition_function(self, state, action):
+        '''Using the forward euler approximation: http://web.mit.edu/10.001/Web/Course_Notes/Differential_Equations_Notes/node3.html'''
         x, v, theta, omega = state
         f = self.f*action
-        a, alpha = self.get_accelerations(f, state)
-        # x = x + v*self.time_step + (0.5*a*self.time_step**2)
-        # v = v + a*self.time_step
-        # theta = theta + omega*self.time_step + (0.5*alpha*self.time_step**2)
-        # omega = omega + alpha*self.time_step
-        '''Using the forward euler approximation: http://web.mit.edu/10.001/Web/Course_Notes/Differential_Equations_Notes/node3.html'''
-        v = v + a*self.time_step
-        omega = omega + alpha*self.time_step
         x = x + v*self.time_step
         theta = theta + omega*self.time_step
-
+        a, alpha = self.get_accelerations(f, (x,v,theta,omega))
+        v = v + a*self.time_step
+        omega = omega + alpha*self.time_step
+        if omega > 0:
+            omega = min(np.deg2rad(180), omega)
+        else:
+            omega = max(-np.deg2rad(180), omega)
+        if v > 0:
+            v = min(10, v)
+        else:
+            v = max(-10, v)
         return (x,v,theta,omega)
     
     def reward_function(self, s_t, a_t, s_t_1, time_step):
@@ -100,7 +103,7 @@ class MDP():
         print("Time Steps: ", time_counter, " Total Reward: ", total_reward)
 
     def print_state(self, s_t):
-        print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", np.rad2deg(s_t[2]), " Omega: ", s_t[3])
+        print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", np.rad2deg(s_t[2]), " Omega: ", np.rad2deg(s_t[3]))
 
     def learn_policy(self, num_episodes, policy):
         pass
