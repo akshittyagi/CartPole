@@ -327,5 +327,5 @@ if __name__ == "__main__":
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
     # mdp.learn_policy_fchc(num_iter=500*15*10, sigma=10, num_episodes=10)
-    generate_graphs(cond=True)
+    generate_graphs(cond=False)
     
