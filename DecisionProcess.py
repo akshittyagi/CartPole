@@ -191,7 +191,7 @@ class MDP():
         pkl.dump(data, open("fchcFILE.pkl", 'w'))
         pkl.dump(theta_max, open("fchcTHETA.pkl", 'w'))
 
-    def learn_policy_bbo_multiprocessing(self, init_population, best_ke, num_episodes, epsilon, num_iter, steps_per_trial=15, sigma=10):
+    def learn_policy_bbo_multiprocessing(self, init_population, best_ke, num_episodes, epsilon, num_iter, steps_per_trial=15, variance=10):
         assert init_population >= best_ke
         assert num_episodes > 1
         curr_iter = 0
@@ -201,13 +201,14 @@ class MDP():
         max_av_reward = -2**31
         while (curr_iter < num_iter):
             import pdb; pdb.set_trace()
-            theta, sigma = util.get_init(state_space=reshape_param[0],action_space=reshape_param[1], sigma=sigma)
+            theta, sigma = util.get_init(state_space=reshape_param[0],action_space=reshape_param[1], sigma=variance)
             for i in range(steps_per_trial):
                 values = []
                 print "-----------------------------"
                 print "At ITER: ", curr_iter
                 print "AT step: ", i
                 theta_sampled= util.sample('gaussian', theta, sigma, reshape_param, init_population)
+                theta_sampled = variance*theta_sampled
                 softmax_theta = np.exp(theta_sampled)
                 tic = time.time()
                 pool = Pool(multiprocessing.cpu_count())
@@ -280,7 +281,7 @@ class multiprocessing_obj(MDP):
 
 def generate_graphs(cond=False):
     if not cond:
-        data = pkl.load(open('../GridWorld/FILE.pkl', 'r'))
+        data = pkl.load(open('FILE.pkl', 'r'))
         num_policies = 100
         num_steps = 15
         num_trials = 20
@@ -325,7 +326,7 @@ if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,debug=False)
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
-    # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
+    mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=20, sigma=10)
     # mdp.learn_policy_fchc(num_iter=500*15*10, sigma=10, num_episodes=10)
     generate_graphs(cond=False)
     
