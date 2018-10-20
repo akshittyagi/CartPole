@@ -308,7 +308,7 @@ def generate_graphs(cond=False):
             counter += 1
         errors /= num_trials
         errors = np.sqrt(errors)
-        x = np.arange(1500)
+        x = np.arange(num_policies*num_steps)
         y = steps
         yerr = errors
         plt.errorbar(x,y,yerr=yerr,fmt='o')
