@@ -283,7 +283,7 @@ def generate_graphs(cond=False):
         data = pkl.load(open('../GridWorld/FILE.pkl', 'r'))
         num_policies = 100
         num_steps = 15
-        num_trials = 500
+        num_trials = 20
         counter = 0
         steps = [0]*num_policies*num_steps
         steps = np.array(steps, dtype='float64')
