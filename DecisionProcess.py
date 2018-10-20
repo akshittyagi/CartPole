@@ -14,9 +14,17 @@ import matplotlib.pyplot as plt
 from Environment import Environment, Actions
 import util
 
-class MDP():
-
-    def __init__(self, env=Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0), gamma=1, g=9.8, f=10, time_step=0.02, fail_angle=np.deg2rad(90), terminate_time=20.2, debug=False):
+class MDP(object):
+    '''MDP Docstring'''
+    # pylint: disable=too-many-instance-attributes
+    def __init__(self,
+                 env=Environment(cart_mass=1, pole_mass=0.1, pole_half_length=0.5,
+                                 start_position=0, start_velocity=0, start_angle=0,
+                                 start_angular_velocity=0),
+                 gamma=1, g=9.8, f=10, time_step=0.02,
+                 fail_angle=np.deg2rad(90), terminate_time=20.2, debug=False):
+        '''Init Docstring'''
+        # pylint: disable=too-many-arguments
         self.env = env
         self.g = g
         self.f = f
@@ -33,30 +41,33 @@ class MDP():
         self.max_omega = 180
 
     def get_init_state(self):
+        '''State Init Docstring'''
         x = self.env.start_position
         v = self.env.start_velocity
         theta = self.env.start_angle
         omega = self.env.start_angular_velocity
-        return (x,v,theta,omega)
+        return (x, v, theta, omega)
 
     def get_state_tuple(self, env):
+        '''Get state Docstring'''
         return (env.cart.position, env.cart.velocity, env.pole.theta, env.pole.omega)
 
     def is_terminal_state(self, state, time_counter):
+        '''Terminal check Docstring'''
         time = time_counter*self.time_step
-        if time == 20.2 or abs(state[2])>self.fail_angle or state[0]>=max(self.track_limits) or state[0]<=min(self.track_limits):
+        if (time == 20.2 or
+                abs(state[2]) > self.fail_angle or
+                state[0] >= max(self.track_limits) or state[0] <= min(self.track_limits)):
             return True
         return False
-    
-    def is_valid_state(self, state):
-        pass
 
     def policy(self, policy, state):
-        x,v,theta,omega = state
+        '''Policy Docstring'''
+        x, v, theta, omega = state
         discrete_step = self.time_step*self.max_velocity
         multiplier = x*1.0//discrete_step
         s_t = 0
-        if x < 0 :
+        if x < 0:
             nxt = -1
         else:
             nxt = 1
@@ -70,31 +81,32 @@ class MDP():
             idx = 15 + abs(s_t)
         else:
             idx = s_t
-        currRow = policy[idx]
-        random_number = 1.0*random.randint(0,99)/100
-        action_array = sorted(zip(np.arange(len(currRow)), currRow), key=lambda x: x[1], reverse=True)
+        curr_row = policy[idx]
+        random_number = 1.0*random.randint(0, 99)/100
+        action_array = sorted(zip(np.arange(len(curr_row)), curr_row),
+                              key=lambda x: x[1], reverse=True)
         prev_proba = 0
         for action, probability in action_array:
             prev_proba += probability
             if random_number <= prev_proba:
                 if self.debug:
                     print "Action Array: ", action_array
-                    print "Rand number: ",random_number
-                    print "Action selected: ", (-1 if action==0 else 1)    
-                return (-1 if action==0 else 1)
-        
+                    print "Rand number: ", random_number
+                    print "Action selected: ", (-1 if action == 0 else 1)
+                return -1 if action == 0 else 1
 
     def get_accelerations(self, f, state):
-        # For the derivations of the dynamics, see: https://coneural.org/florian/papers/05_cart_pole.pdf
+        ''' Compute Dynamics Docstring
+        Derivations of the dynamics, see: https://coneural.org/florian/papers/05_cart_pole.pdf '''
         x = state[0]
         v = state[1]
         theta = state[2]
         omega = state[3]
         sin = np.sin
         cos = np.cos
-        alpha = self.g*sin(theta) + cos(theta)*( -f - self.env.pole.mass*self.env.pole.length*(omega**2)*sin(theta))/(self.env.cart.mass + self.env.pole.mass)
+        alpha = self.g*sin(theta) + cos(theta)*(-f - self.env.pole.mass*self.env.pole.length*(omega**2)*sin(theta))/(self.env.cart.mass + self.env.pole.mass)
         alpha /= (self.env.pole.length*(4/3 - (self.env.pole.mass*(cos(theta)**2))/(self.env.pole.mass + self.env.cart.mass)))
-        a =( f + (self.env.pole.mass*self.env.pole.length*((omega**2)*sin(theta) - alpha*cos(theta))) )/ (self.env.cart.mass + self.env.pole.mass) 
+        a = (f + (self.env.pole.mass*self.env.pole.length*((omega**2)*sin(theta) - alpha*cos(theta))))/(self.env.cart.mass + self.env.pole.mass)
         return a, alpha
 
     def transition_function(self, state, action):
@@ -114,16 +126,18 @@ class MDP():
             v = min(self.max_velocity, v)
         else:
             v = max(-self.max_velocity, v)
-        return (x,v,theta,omega)
-    
+        return (x, v, theta, omega)
+
     def reward_function(self, s_t, a_t, s_t_1, time_step):
+        '''Reward Docstring'''
         return 1*(self.gamma**time_step)
-    
+
     def run_episode(self, policy):
+        '''Get episode Docstring'''
         s_t = self.get_init_state()
         total_reward = 0
         time_counter = 0
-        while(not self.is_terminal_state(s_t, time_counter)):
+        while not self.is_terminal_state(s_t, time_counter):
             if self.debug:
                 self.print_state(s_t)
             a_t = self.policy(policy, s_t)
@@ -140,6 +154,7 @@ class MDP():
         return total_reward
 
     def print_state(self, s_t):
+        '''Print state docstring'''
         print("Pos: ", s_t[0], " Velocity: ", s_t[1], " Theta: ", np.rad2deg(s_t[2]), " Omega: ", np.rad2deg(s_t[3]))
 
     def evaluate(self, theta_k, num_episodes):
@@ -270,13 +285,13 @@ class MDP():
         pkl.dump(theta_max, open("THETA.pkl", 'w'))
 
 class multiprocessing_obj(MDP):
-        def __init__(self, num_episodes):
-            MDP.__init__(self)
-            self.num_episodes = num_episodes
-        def __call__(self, theta):
-            theta = theta/np.sum(theta, axis=1)[:,None]
-            j = self.evaluate(theta, self.num_episodes)
-            return theta.reshape(theta.shape[0]*theta.shape[1], 1), j
+    def __init__(self, num_episodes):
+        MDP.__init__(self)
+        self.num_episodes = num_episodes
+    def __call__(self, theta):
+        theta = theta/np.sum(theta, axis=1)[:, None]
+        j = self.evaluate(theta, self.num_episodes)
+        return theta.reshape(theta.shape[0]*theta.shape[1], 1), j
 
 def generate_graphs(cond=False):
     if not cond:
