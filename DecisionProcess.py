@@ -200,7 +200,6 @@ class MDP():
         theta_max = []
         max_av_reward = -2**31
         while (curr_iter < num_iter):
-            import pdb; pdb.set_trace()
             theta, sigma = util.get_init(state_space=reshape_param[0],action_space=reshape_param[1], sigma=variance)
             for i in range(steps_per_trial):
                 values = []
@@ -326,7 +325,7 @@ if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,debug=False)
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
-    mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=20, sigma=10)
+    mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=20, variance=10)
     # mdp.learn_policy_fchc(num_iter=500*15*10, sigma=10, num_episodes=10)
     generate_graphs(cond=False)
     
