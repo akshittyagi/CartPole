@@ -39,7 +39,23 @@ class MDP(object):
         self.debug = debug
         self.max_velocity = 10
         self.max_omega = 180
+        self.states = 4
 
+    def get_value_function(self, k, weight, state):
+        '''Get the value function using a k-th order fourier basis'''
+        space = k+1
+        curr_s = np.array(state).reshape(len(state), 1)
+        phi = []
+        for idx0 in range(space):
+            for idx1 in range(space):
+                for idx2 in range(space):
+                    for idx3 in range(space):
+                        curr_c = np.array([idx0, idx1, idx2, idx3]).reshape(1, 4)
+                        dot = curr_c.dot(curr_s)
+                        phi.append(np.cos(np.pi*dot.reshape(1,)))
+        phi = np.array(phi).reshape(len(phi), 1)
+        return weight.T.dot(phi)[0], phi
+   
     def get_init_state(self):
         '''State Init Docstring'''
         x = self.env.start_position
@@ -63,37 +79,44 @@ class MDP(object):
 
     def policy(self, policy, state):
         '''Policy Docstring'''
-        x, v, theta, omega = state
-        discrete_step = self.time_step*self.max_velocity
-        multiplier = x*1.0//discrete_step
-        s_t = 0
-        if x < 0:
-            nxt = -1
+        if isinstance(policy, str) and policy == 'uniform':
+            x = random.randint(0,2)
+            if x % 2 == 0:
+                return 1
+            else:
+                return -1
         else:
-            nxt = 1
-        if abs(x - multiplier*discrete_step) < abs(x-(multiplier+nxt)*discrete_step):
-            s_t = multiplier
-        else:
-            s_t = multiplier + nxt
-        s_t = int(s_t)
-        idx = 0
-        if s_t < 0:
-            idx = 15 + abs(s_t)
-        else:
-            idx = s_t
-        curr_row = policy[idx]
-        random_number = 1.0*random.randint(0, 99)/100
-        action_array = sorted(zip(np.arange(len(curr_row)), curr_row),
-                              key=lambda x: x[1], reverse=True)
-        prev_proba = 0
-        for action, probability in action_array:
-            prev_proba += probability
-            if random_number <= prev_proba:
-                if self.debug:
-                    print "Action Array: ", action_array
-                    print "Rand number: ", random_number
-                    print "Action selected: ", (-1 if action == 0 else 1)
-                return -1 if action == 0 else 1
+            x, v, theta, omega = state
+            discrete_step = self.time_step*self.max_velocity
+            multiplier = x*1.0//discrete_step
+            s_t = 0
+            if x < 0:
+                nxt = -1
+            else:
+                nxt = 1
+            if abs(x - multiplier*discrete_step) < abs(x-(multiplier+nxt)*discrete_step):
+                s_t = multiplier
+            else:
+                s_t = multiplier + nxt
+            s_t = int(s_t)
+            idx = 0
+            if s_t < 0:
+                idx = 15 + abs(s_t)
+            else:
+                idx = s_t
+            curr_row = policy[idx]
+            random_number = 1.0*random.randint(0, 99)/100
+            action_array = sorted(zip(np.arange(len(curr_row)), curr_row),
+                                key=lambda x: x[1], reverse=True)
+            prev_proba = 0
+            for action, probability in action_array:
+                prev_proba += probability
+                if random_number <= prev_proba:
+                    if self.debug:
+                        print "Action Array: ", action_array
+                        print "Rand number: ", random_number
+                        print "Action selected: ", (-1 if action == 0 else 1)
+                    return -1 if action == 0 else 1
 
     def get_accelerations(self, f, state):
         ''' Compute Dynamics Docstring
@@ -128,7 +151,7 @@ class MDP(object):
             v = max(-self.max_velocity, v)
         return (x, v, theta, omega)
 
-    def reward_function(self, s_t, a_t, s_t_1, time_step):
+    def reward_function(self, s_t, a_t, s_t_1, time_step=0):
         '''Reward Docstring'''
         return 1*(self.gamma**time_step)
 
@@ -340,7 +363,7 @@ if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,debug=False)
     # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=500, sigma=10)
-    mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=20, variance=10)
+    # mdp.learn_policy_bbo_multiprocessing(init_population=100, best_ke=10, num_episodes=10, epsilon=1e-2, num_iter=20, variance=10)
     # mdp.learn_policy_fchc(num_iter=500*15*10, sigma=10, num_episodes=10)
-    generate_graphs(cond=False)
+    # generate_graphs(cond=False)
     
