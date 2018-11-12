@@ -41,7 +41,7 @@ class TD(object):
             r_t = self.mdp.reward_function(s_t, a_t, s_t_1)
             v_s_t_1, _ = self.mdp.get_value_function(self.order, self.w, s_t_1)
             v_s_t, dv_dw = self.mdp.get_value_function(self.order, self.w, s_t)
-            self.w = self.w + (r_t + self.gamma*v_s_t_1 - v_s_t)*dv_dw
+            self.w = self.w + self.alpha*(r_t + self.gamma*v_s_t_1 - v_s_t)*dv_dw
             s_t = s_t_1
             time_counter += 1
   
@@ -85,7 +85,9 @@ class TD(object):
             self.alpha = alpha
             X.append(alpha)
             self.update_weights()
-            y.append(self.evaluate_policy()) 
+            y.append(self.evaluate_policy())
+        print(X)
+        print(y) 
         X = np.log(np.array(X))/np.log(10)
         plt.plot(X, y)
         plt.show()
@@ -93,5 +95,5 @@ class TD(object):
 if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,debug=False)
-    td = TD(mdp, 100, 100, 3)
-    td.create_plots_for_alphas([1e-18,1e-17,1e-16,1e-15,1e-14,1e-13,1e-12,1e-11])
+    td = TD(mdp, 100, 100, 5)
+    td.create_plots_for_alphas([1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1])
