@@ -119,7 +119,10 @@ class TD(object):
         plt.show()
 
 if __name__ == "__main__":
+    args = argparse.ArgumentParser(description="Parsing Arguments for running RL Simulations")
+    args.add_argument('-k', '--order', type=int, help='Order of Approximation')
+    args = args.parse_args()
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,debug=False)
-    td = TD(mdp, 100, 100, 3)
+    td = TD(mdp, 100, 100, args.order)
     td.create_plots_for_alphas([1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1])
