@@ -55,7 +55,26 @@ class MDP(object):
                         phi.append(np.cos(np.pi*dot.reshape(1,)))
         phi = np.array(phi).reshape(len(phi), 1)
         return weight.T.dot(phi)[0], phi
-   
+    
+    def get_q_value_function(self, k, weight, state, action):
+        '''Get the value function using a k-th order fourier basis'''
+        space = k+1
+        curr_s = state
+        curr_s.append(action)
+        curr_s = np.array(curr_s).reshape(len(curr_s), 1)
+        phi = []
+        for idx0 in range(space):
+            for idx1 in range(space):
+                for idx2 in range(space):
+                    for idx3 in range(space):
+                        for idx4 in range(space):
+                            curr_c = np.array([idx0, idx1, idx2, idx3, idx4]).reshape(1, 5)
+                            dot =  curr_c.dot(curr_s)
+                            phi.append(np.cos(np.pi*dot.reshape(1,)))
+
+        phi = np.array(phi).reshape(len(phi), 1)
+        return weight.T.dot(phi)[0], phi
+
     def get_init_state(self):
         '''State Init Docstring'''
         x = self.env.start_position
