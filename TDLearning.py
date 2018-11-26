@@ -479,7 +479,7 @@ if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,include_action=True, debug=False)
     td = TD(mdp, 100, 100, fourier_order)
-    num_trials = 100
+    num_trials = 1000
     num_training_episodes = 100
     
     hyperparam_search = False
