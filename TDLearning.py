@@ -8,11 +8,15 @@ from enum import Enum
 import multiprocessing
 from multiprocessing import Pool
 import time
+import math
 
 import numpy as np
 from matplotlib import pyplot as plt
 from DecisionProcess import MDP
 from Environment import Environment, Actions
+
+def sigmoid(x):
+    return 1.0/(1 + np.exp(-x))
 
 class TD(object):
     '''TD Eval and Learning'''
@@ -191,6 +195,110 @@ class Sarsa(TD):
             plt.show()
         return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
 
+class Sarsa_NN(TD):
+    '''Sarsa docstring'''
+    def __init__(self, mdp, epsilon, alpha, train_episodes):
+        super(Sarsa_NN, self).__init__(mdp, alpha=alpha)
+        self.episodes = train_episodes
+        self.epsilon = epsilon
+        self.gamma = self.mdp.gamma
+        self.hidden = 10
+        self.w1 = np.random.rand(self.mdp.states, self.hidden)
+        self.w2 = np.random.rand(self.hidden, 1)
+        self.b1 = np.ones(self.hidden)
+        self.b2 = 1
+
+    def init_weights(self):
+        self.w1 = np.random.rand(self.mdp.states, self.hidden)
+        self.w2 = np.random.rand(self.hidden, 1)
+        self.b1 = np.ones(self.hidden).reshape(self.hidden, 1)
+        self.b2 = 1
+
+    def get_q_value_function(self, state, action):
+        curr_s = list(state)
+        curr_s.append(action)
+        curr_s = np.array(curr_s).reshape(len(curr_s), 1)
+        sig = sigmoid(self.w1.T.dot(curr_s) + self.b1)
+        out = self.w2.T.dot(sig) + self.b2
+        self.cache = (sig, out, curr_s)
+        return out[0][0]
+    
+    def backprop_weights(self, error, alpha):
+        sig, out, curr_s = self.cache
+        dq_dw2 = sig
+        dq_db2 = 1
+        dq_dw1 = curr_s.dot((self.w2*(sig)*(1-sig)).T)
+        dq_db1 = self.w2*(sig)*(1-sig)
+        self.w1 += alpha*error*dq_dw1
+        self.w2 += alpha*error*dq_dw2
+        self.b1 += alpha*error*dq_db1
+        self.b2 += alpha*error*dq_db2
+
+    def epsilon_greedy_action_selection(self, state, temperature=1):
+        random_number = 1.0*random.randint(0,99)/100
+        epsilon = self.epsilon / temperature
+        q_a_1 = self.get_q_value_function(state, 1)
+        q_a_2 = self.get_q_value_function(state, -1)
+        q_values = [q_a_1, q_a_2]
+        if 1 - epsilon >= random_number:
+            '''Select uniformly from the set of values argmax(q_values[s, ... ])'''
+            arg_max = np.argwhere(q_values == np.amax(q_values))
+            coin_toss = random.randint(0, len(arg_max) - 1)
+            argmax = arg_max[coin_toss]
+            action = (1 if argmax[0] % 2 == 0 else -1)
+            return action
+        else:
+            '''Select uniformly randomly from the set of actions'''
+            coin_toss = random.randint(0, len(q_values) - 1)
+            action = (1 if coin_toss % 2 == 0 else -1)
+            return action
+
+    def learn(self, reduction_factor=4, plot=False, debug=False):
+        X, y = [], []
+        X_ep, y_ep = [], []
+        global_time_step, time_step = 0, 0
+        alpha = self.alpha
+        temperature = 1
+
+        self.init_weights()
+
+        for episode in range(self.episodes):
+            if debug:
+                print "------------------------------"
+                print "AT EPISODE: ", episode + 1
+            s_t = self.mdp.get_init_state()
+            a_t = self.epsilon_greedy_action_selection(s_t)
+            mse = 0
+            time_step = 0
+            temperature = 1
+            g = 0
+            while not self.mdp.is_terminal_state(s_t, time_step):
+                alpha = alpha / temperature
+                s_t_1 = self.mdp.transition_function(s_t, a_t)
+                r_t = self.mdp.reward_function(s_t, a_t, s_t_1)
+                a_t_1 = self.epsilon_greedy_action_selection(s_t_1, temperature=temperature)
+                q_s_prime_a_prime = self.get_q_value_function(s_t_1, a_t_1)
+                q_s_a = self.get_q_value_function(s_t, a_t)
+                q_td_error = ((r_t + self.gamma*(q_s_prime_a_prime) - q_s_a))
+                self.backprop_weights(q_td_error, alpha)
+                s_t = s_t_1
+                a_t = a_t_1
+                g = g + r_t*(self.gamma**time_step)
+                global_time_step += 1
+                time_step += 1
+                mse += q_td_error**2
+                temperature = global_time_step**(1.0/reduction_factor)
+            mse = mse / time_step
+            X_ep.append(episode)
+            y_ep.append(g)
+            if debug:
+                print "Return:  ", g
+                print "------------------------------"
+        if plot:
+            plt.plot(X_ep, y_ep)
+            plt.show()
+        return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
+
 class Qlearning(TD):
     '''Sarsa docstring'''
     def __init__(self, mdp, epsilon, alpha, train_episodes):
@@ -262,28 +370,137 @@ class Qlearning(TD):
             plt.plot(X_ep, y_ep)
             plt.show()
         return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
+    
+class Sarsa_NN(TD):
+    '''Sarsa docstring'''
+    def __init__(self, mdp, epsilon, alpha, train_episodes):
+        super(Sarsa_NN, self).__init__(mdp, alpha=alpha)
+        self.episodes = train_episodes
+        self.epsilon = epsilon
+        self.gamma = self.mdp.gamma
+        self.hidden = 10
+        self.w1 = np.random.rand(self.mdp.states, self.hidden)
+        self.w2 = np.random.rand(self.hidden, 1)
+        self.b1 = np.ones(self.hidden)
+        self.b2 = 1
+
+    def init_weights(self):
+        self.w1 = np.random.rand(self.mdp.states, self.hidden)
+        self.w2 = np.random.rand(self.hidden, 1)
+        self.b1 = np.ones(self.hidden).reshape(self.hidden, 1)
+        self.b2 = 1
+
+    def get_q_value_function(self, state, action):
+        curr_s = list(state)
+        curr_s.append(action)
+        curr_s = np.array(curr_s).reshape(len(curr_s), 1)
+        sig = sigmoid(self.w1.T.dot(curr_s) + self.b1)
+        out = self.w2.T.dot(sig) + self.b2
+        self.cache = (sig, out, curr_s)
+        return out[0][0]
+    
+    def backprop_weights(self, error, alpha):
+        sig, out, curr_s = self.cache
+        dq_dw2 = sig
+        dq_db2 = 1
+        dq_dw1 = curr_s.dot((self.w2*(sig)*(1-sig)).T)
+        dq_db1 = self.w2*(sig)*(1-sig)
+        self.w1 += alpha*error*dq_dw1
+        self.w2 += alpha*error*dq_dw2
+        self.b1 += alpha*error*dq_db1
+        self.b2 += alpha*error*dq_db2
+
+    def epsilon_greedy_action_selection(self, state, temperature=1):
+        random_number = 1.0*random.randint(0,99)/100
+        epsilon = self.epsilon / temperature
+        q_a_1 = self.get_q_value_function(state, 1)
+        q_a_2 = self.get_q_value_function(state, -1)
+        q_values = [q_a_1, q_a_2]
+        if 1 - epsilon >= random_number:
+            '''Select uniformly from the set of values argmax(q_values[s, ... ])'''
+            arg_max = np.argwhere(q_values == np.amax(q_values))
+            coin_toss = random.randint(0, len(arg_max) - 1)
+            argmax = arg_max[coin_toss]
+            action = (1 if argmax[0] % 2 == 0 else -1)
+            return action
+        else:
+            '''Select uniformly randomly from the set of actions'''
+            coin_toss = random.randint(0, len(q_values) - 1)
+            action = (1 if coin_toss % 2 == 0 else -1)
+            return action
+
+    def learn(self, reduction_factor=4, plot=False, debug=False):
+        X, y = [], []
+        X_ep, y_ep = [], []
+        global_time_step, time_step = 0, 0
+        alpha = self.alpha
+        temperature = 1
+
+        self.init_weights()
+
+        for episode in range(self.episodes):
+            if debug:
+                print "------------------------------"
+                print "AT EPISODE: ", episode + 1
+            s_t = self.mdp.get_init_state()
+            a_t = self.epsilon_greedy_action_selection(s_t)
+            mse = 0
+            time_step = 0
+            temperature = 1
+            g = 0
+            while not self.mdp.is_terminal_state(s_t, time_step):
+                alpha = alpha / temperature
+                s_t_1 = self.mdp.transition_function(s_t, a_t)
+                r_t = self.mdp.reward_function(s_t, a_t, s_t_1)
+                a_t_1 = self.epsilon_greedy_action_selection(s_t_1, temperature=temperature)
+                q_s_prime_a_prime = self.get_q_value_function(s_t_1, a_t_1)
+                q_s_a = self.get_q_value_function(s_t, a_t)
+                q_td_error = ((r_t + self.gamma*(q_s_prime_a_prime) - q_s_a))
+                self.backprop_weights(q_td_error, alpha)
+                s_t = s_t_1
+                a_t = a_t_1
+                g = g + r_t*(self.gamma**time_step)
+                global_time_step += 1
+                time_step += 1
+                mse += q_td_error**2
+                temperature = global_time_step**(1.0/reduction_factor)
+            mse = mse / time_step
+            X_ep.append(episode)
+            y_ep.append(g)
+            if debug:
+                print "Return:  ", g
+                print "------------------------------"
+        if plot:
+            plt.plot(X_ep, y_ep)
+            plt.show()
+        return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
 
 if __name__ == "__main__":
     fourier_order = 3
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,include_action=True, debug=False)
     td = TD(mdp, 100, 100, fourier_order)
-    num_trials = 5
+    num_trials = 1000
     num_training_episodes = 100
     
     hyperparam_search = False
-    switch_sarsa = False
+    switch_sarsa = 2
     X = np.arange(num_training_episodes)
     Y = []
 
-    if switch_sarsa:
+    if switch_sarsa == 0:
         print "------------" 
         print "SARSA" 
         print "------------"
-    else: 
+    elif switch_sarsa == 1: 
         print "------------"
         print "Q-LEARNING"
         print "------------"
+    elif switch_sarsa == 2:
+        print "------------" 
+        print "SARSA NN" 
+        print "------------"
+
 
     if hyperparam_search:
         '''HyperParameter Search'''
@@ -311,16 +528,19 @@ if __name__ == "__main__":
    
     if not hyperparam_search:
         #alpha, epsilon, reduction_factor: alpha = alpha/(temp**red_fac)
-        params = [1e-3, 1e-1, 2]
+        params = [1e-1, 1e-1, 2]
 
     for trial in range(num_trials):
         print "AT TRIAL: ", trial + 1
-        if switch_sarsa:
+        if switch_sarsa == 0:
             sarsa = Sarsa(mdp, epsilon=params[1], alpha=params[0], train_episodes=num_training_episodes)
             _, y, _ = sarsa.learn(reduction_factor=params[2], plot=False, debug=False)
-        else:
+        elif switch_sarsa == 1:
             qlearn = Qlearning(mdp, epsilon=params[1], alpha=params[0], train_episodes=num_training_episodes)
             _, y, _ = qlearn.learn(reduction_factor=params[2], plot=False, debug=False)
+        elif switch_sarsa == 2:
+            sarsa = Sarsa_NN(mdp, epsilon=params[1], alpha=params[0], train_episodes=num_training_episodes)
+            _, y, _ = sarsa.learn(reduction_factor=params[2], plot=False, debug=False)
         Y.append(y)
     Y = np.array(Y)
     Y_mean = np.sum(Y, axis=0)
@@ -332,13 +552,17 @@ if __name__ == "__main__":
     Y_diff = np.sqrt(Y_diff)
     plt.errorbar(X, Y_mean, yerr=Y_diff, fmt='o')
     
-    if switch_sarsa:
+    if switch_sarsa == 0:
         print "------------" 
         print "SARSA" 
         print "------------"
-    else: 
+    elif switch_sarsa == 1: 
         print "------------"
         print "Q-LEARNING"
+        print "------------"
+    elif switch_sarsa == 2:
+        print "------------" 
+        print "SARSA NN" 
         print "------------"
 
     plt.show()
