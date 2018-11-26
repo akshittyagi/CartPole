@@ -371,10 +371,10 @@ class Qlearning(TD):
             plt.show()
         return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
     
-class QLearning_NN(TD):
+class Qlearning_NN(TD):
     '''Sarsa docstring'''
     def __init__(self, mdp, epsilon, alpha, train_episodes):
-        super(Sarsa_NN, self).__init__(mdp, alpha=alpha)
+        super(Qlearning_NN, self).__init__(mdp, alpha=alpha)
         self.episodes = train_episodes
         self.epsilon = epsilon
         self.gamma = self.mdp.gamma
@@ -479,7 +479,7 @@ if __name__ == "__main__":
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,include_action=True, debug=False)
     td = TD(mdp, 100, 100, fourier_order)
-    num_trials = 1000
+    num_trials = 100
     num_training_episodes = 100
     
     hyperparam_search = False
@@ -499,7 +499,7 @@ if __name__ == "__main__":
         print "------------" 
         print "SARSA NN" 
         print "------------"
-    elif switch_sarsa == 4:
+    elif switch_sarsa == 3:
         print "------------"
         print "Q-LEARNING NN"
         print "------------"
@@ -575,7 +575,7 @@ if __name__ == "__main__":
         print "------------" 
         print "SARSA NN" 
         print "------------"
-    elif switch_sarsa == 4:
+    elif switch_sarsa == 3:
         print "------------"
         print "Q-LEARNING NN"
         print "------------"
