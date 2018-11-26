@@ -22,7 +22,7 @@ class MDP(object):
                                  start_position=0, start_velocity=0, start_angle=0,
                                  start_angular_velocity=0),
                  gamma=1, g=9.8, f=10, time_step=0.02,
-                 fail_angle=np.deg2rad(90), terminate_time=20.2, debug=False):
+                 fail_angle=np.deg2rad(90), terminate_time=20.2, include_action=False, debug=False):
         '''Init Docstring'''
         # pylint: disable=too-many-arguments
         self.env = env
@@ -39,7 +39,10 @@ class MDP(object):
         self.debug = debug
         self.max_velocity = 10
         self.max_omega = 180
-        self.states = 4
+        if include_action:
+            self.states = 5
+        else:
+            self.states = 4
 
     def get_value_function(self, k, weight, state):
         '''Get the value function using a k-th order fourier basis'''
@@ -59,7 +62,7 @@ class MDP(object):
     def get_q_value_function(self, k, weight, state, action):
         '''Get the value function using a k-th order fourier basis'''
         space = k+1
-        curr_s = state
+        curr_s = list(state)
         curr_s.append(action)
         curr_s = np.array(curr_s).reshape(len(curr_s), 1)
         phi = []
@@ -71,9 +74,8 @@ class MDP(object):
                             curr_c = np.array([idx0, idx1, idx2, idx3, idx4]).reshape(1, 5)
                             dot =  curr_c.dot(curr_s)
                             phi.append(np.cos(np.pi*dot.reshape(1,)))
-
-        phi = np.array(phi).reshape(len(phi), 1)
-        return weight.T.dot(phi)[0], phi
+        phi = np.array(phi).reshape(len(phi),)
+        return weight.T.dot(phi), phi
 
     def get_init_state(self):
         '''State Init Docstring'''
