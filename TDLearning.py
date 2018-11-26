@@ -371,7 +371,7 @@ class Qlearning(TD):
             plt.show()
         return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
     
-class Sarsa_NN(TD):
+class QLearning_NN(TD):
     '''Sarsa docstring'''
     def __init__(self, mdp, epsilon, alpha, train_episodes):
         super(Sarsa_NN, self).__init__(mdp, alpha=alpha)
@@ -443,22 +443,21 @@ class Sarsa_NN(TD):
                 print "------------------------------"
                 print "AT EPISODE: ", episode + 1
             s_t = self.mdp.get_init_state()
-            a_t = self.epsilon_greedy_action_selection(s_t)
             mse = 0
             time_step = 0
             temperature = 1
             g = 0
             while not self.mdp.is_terminal_state(s_t, time_step):
                 alpha = alpha / temperature
+                a_t = self.epsilon_greedy_action_selection(s_t)
                 s_t_1 = self.mdp.transition_function(s_t, a_t)
                 r_t = self.mdp.reward_function(s_t, a_t, s_t_1)
-                a_t_1 = self.epsilon_greedy_action_selection(s_t_1, temperature=temperature)
-                q_s_prime_a_prime = self.get_q_value_function(s_t_1, a_t_1)
+                q_s_prime_a1 = self.get_q_value_function(s_t_1, 1)
+                q_s_prime_a2 = self.get_q_value_function(s_t_1, -1)
                 q_s_a = self.get_q_value_function(s_t, a_t)
-                q_td_error = ((r_t + self.gamma*(q_s_prime_a_prime) - q_s_a))
+                q_td_error = ((r_t + self.gamma*(max(q_s_prime_a1, q_s_prime_a2)) - q_s_a))
                 self.backprop_weights(q_td_error, alpha)
                 s_t = s_t_1
-                a_t = a_t_1
                 g = g + r_t*(self.gamma**time_step)
                 global_time_step += 1
                 time_step += 1
@@ -484,7 +483,7 @@ if __name__ == "__main__":
     num_training_episodes = 100
     
     hyperparam_search = False
-    switch_sarsa = 2
+    switch_sarsa = 3
     X = np.arange(num_training_episodes)
     Y = []
 
@@ -500,7 +499,10 @@ if __name__ == "__main__":
         print "------------" 
         print "SARSA NN" 
         print "------------"
-
+    elif switch_sarsa == 4:
+        print "------------"
+        print "Q-LEARNING NN"
+        print "------------"
 
     if hyperparam_search:
         '''HyperParameter Search'''
@@ -513,12 +515,18 @@ if __name__ == "__main__":
             for epsilon in epsilons:
                 for reduction_factor in reduction_factors:
                     print "RETURN for alpha", str(alpha), " epsilon ", str(epsilon), " reductionFactor ", str(reduction_factor), " : "
-                    if switch_sarsa:
+                    if switch_sarsa == 0:
                         sarsa = Sarsa(mdp, epsilon=epsilon, alpha=alpha, train_episodes=num_training_episodes)
-                        _, y, g = sarsa.learn(reduction_factor=reduction_factor)
-                    else:
+                        _, y, g = sarsa.learn(reduction_factor=reduction_factor, plot=False, debug=False)
+                    elif switch_sarsa == 1:
                         qlearn = Qlearning(mdp, epsilon=epsilon, alpha=alpha, train_episodes=num_training_episodes)
-                        _, y, g = qlearn.learn(reduction_factor=reduction_factor)
+                        _, y, g = qlearn.learn(reduction_factor=reduction_factor, plot=False, debug=False)
+                    elif switch_sarsa == 2:
+                        sarsa = Sarsa_NN(mdp, epsilon=epsilon, alpha=alpha, train_episodes=num_training_episodes)
+                        _, y, g = sarsa.learn(reduction_factor=reduction_factor, plot=False, debug=False)
+                    elif switch_sarsa == 3:
+                        qlearn = Qlearning_NN(mdp, epsilon=epsilon, alpha=alpha, train_episodes=num_training_episodes)
+                        _, y, g = qlearn.learn(reduction_factor=reduction_factor, plot=False, debug=False)
                     print g
                     if G < g:
                         G = g
@@ -541,6 +549,9 @@ if __name__ == "__main__":
         elif switch_sarsa == 2:
             sarsa = Sarsa_NN(mdp, epsilon=params[1], alpha=params[0], train_episodes=num_training_episodes)
             _, y, _ = sarsa.learn(reduction_factor=params[2], plot=False, debug=False)
+        elif switch_sarsa == 3:
+            qlearn = Qlearning_NN(mdp, epsilon=params[1], alpha=params[0], train_episodes=num_training_episodes)
+            _, y, _ = qlearn.learn(reduction_factor=params[2], plot=False, debug=False)
         Y.append(y)
     Y = np.array(Y)
     Y_mean = np.sum(Y, axis=0)
@@ -563,6 +574,10 @@ if __name__ == "__main__":
     elif switch_sarsa == 2:
         print "------------" 
         print "SARSA NN" 
+        print "------------"
+    elif switch_sarsa == 4:
+        print "------------"
+        print "Q-LEARNING NN"
         print "------------"
 
     plt.show()
