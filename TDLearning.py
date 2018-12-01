@@ -136,6 +136,8 @@ class Sarsa(TD):
         q_a_1, _ = self.mdp.get_q_value_function(self.order, self.w, state, 1)
         q_a_2, _ = self.mdp.get_q_value_function(self.order, self.w, state, -1)
         q_values = [q_a_1, q_a_2]
+        if self.debug:
+            print "QLEFT: ", q_values[0], " QRIGHT: ", q_values[1]
         if 1 - epsilon >= random_number:
             '''Select uniformly from the set of values argmax(q_values[s, ... ])'''
             arg_max = np.argwhere(q_values == np.amax(q_values))
@@ -157,6 +159,7 @@ class Sarsa(TD):
         temperature = 1
         
         self.initialize_weights()
+        self.debug = debug
 
         for episode in range(self.episodes):
             if debug:
@@ -164,7 +167,6 @@ class Sarsa(TD):
                 print "AT EPISODE: ", episode + 1
             s_t = self.mdp.get_init_state()
             a_t = self.epsilon_greedy_action_selection(s_t)
-            mse = 0
             time_step = 0
             temperature = 1
             g = 0
@@ -176,15 +178,15 @@ class Sarsa(TD):
                 q_s_prime_a_prime, _ = self.mdp.get_q_value_function(self.order, self.w, s_t_1, a_t_1)
                 q_s_a, dq_dw = self.mdp.get_q_value_function(self.order, self.w, s_t, a_t)
                 q_td_error = ((r_t + self.gamma*(q_s_prime_a_prime) - q_s_a)*dq_dw)
+                if self.debug:
+                    print "QERROR: ", np.sqrt(np.sum(q_td_error**2))
                 self.w += alpha*(q_td_error)
                 s_t = s_t_1
                 a_t = a_t_1
                 g = g + r_t*(self.gamma**time_step)
                 global_time_step += 1
                 time_step += 1
-                mse += q_td_error**2
-                # temperature = global_time_step**(1.0/reduction_factor)
-            mse = mse / time_step
+                temperature = global_time_step**(1.0/reduction_factor)
             X_ep.append(episode)
             y_ep.append(g)
             if debug:
@@ -334,6 +336,7 @@ class Qlearning(TD):
         temperature = 1
         
         self.initialize_weights()
+        self.debug = debug
 
         for episode in range(self.episodes):
             if debug:
@@ -443,7 +446,6 @@ class Qlearning_NN(TD):
                 print "------------------------------"
                 print "AT EPISODE: ", episode + 1
             s_t = self.mdp.get_init_state()
-            mse = 0
             time_step = 0
             temperature = 1
             g = 0
@@ -461,9 +463,7 @@ class Qlearning_NN(TD):
                 g = g + r_t*(self.gamma**time_step)
                 global_time_step += 1
                 time_step += 1
-                mse += q_td_error**2
                 temperature = global_time_step**(1.0/reduction_factor)
-            mse = mse / time_step
             X_ep.append(episode)
             y_ep.append(g)
             if debug:
@@ -475,15 +475,15 @@ class Qlearning_NN(TD):
         return X_ep, y_ep, np.sum(np.array(y_ep))*1.0/len(y_ep)
 
 if __name__ == "__main__":
-    fourier_order = 3
+    fourier_order = 7
     env = Environment(cart_mass=1,pole_mass=0.1,pole_half_length=0.5,start_position=0,start_velocity=0,start_angle=0,start_angular_velocity=0)
     mdp = MDP(env,1,include_action=True, debug=False)
     td = TD(mdp, 100, 100, fourier_order)
-    num_trials = 1000
+    num_trials = 10
     num_training_episodes = 100
     
     hyperparam_search = False
-    switch_sarsa = 3
+    switch_sarsa = 0
     X = np.arange(num_training_episodes)
     Y = []
 
